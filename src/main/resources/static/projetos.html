@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Projetos - SightCut</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (!sessionUserId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.replace("home.html");
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div class="brand"><a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a></div>
+    <nav class="mainnav">
+      <a href="clientes.html">Gerenciar Clientes</a>
+      <a href="materiais.html">Gerenciar Materiais</a>
+      <a href="projetos.html" class="active">Projetos</a>
+    </nav>
+    <div class="user">
+      <button id="logout" class="btn outline" style="margin-left:12px;">Sair</button>
+    </div>
+  </div>
+</header>
+
+<div class="container page">
+  <aside class="sidebar">
+    <h2>Projetos <span class="icon">📋</span></h2>
+    <a class="btn white" href="projeto-form.html">Criar Projeto</a>
+  </aside>
+
+  <section class="content">
+    <div class="panel">
+      <div class="table-header">
+        <input id="search" type="search" placeholder="Pesquisar projeto por cliente ou título">
+      </div>
+      <table class="table" id="tabelaProjetos">
+        <thead>
+        <tr>
+          <th>ID</th>
+          <th>Título</th>
+          <th>Cliente</th>
+          <th>Custo Total</th>
+          <th>Entrega Estimada</th>
+          <th>Ações</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr><td colspan="6">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/projetos";
+  const API_RELATORIOS = "http://localhost:8080/api/relatorios";
+  let usuarioId = null;
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    usuarioId = Number(localStorage.getItem("sessionUserId"));
+
+    if (!usuarioId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.href = "home.html";
+      return;
+    }
+
+    document.getElementById("logout").addEventListener("click", () => {
+      localStorage.removeItem("sessionUserId");
+      window.location.href = "home.html";
+    });
+
+    await carregarProjetos();
+  });
+
+  async function carregarProjetos() {
+    try {
+      const resp = await fetch(`${API_BASE}/${usuarioId}`);
+      const projetos = await resp.json();
+
+      const tbody = document.querySelector("#tabelaProjetos tbody");
+      tbody.innerHTML = "";
+
+      if (!Array.isArray(projetos) || projetos.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='6'>Nenhum projeto encontrado</td></tr>";
+        return;
+      }
+
+      projetos.forEach(proj => {
+        const tr = document.createElement("tr");
+
+        const clienteNome = proj.cliente?.nome ?? "—";
+        const custo = proj.custoTotal ? `R$ ${proj.custoTotal.toFixed(2)}` : "—";
+        const dataEntrega = proj.dataEntregaEstimada ?? "—";
+
+        tr.innerHTML = `
+          <td>${proj.id}</td>
+          <td>${proj.titulo}</td>
+          <td>${clienteNome}</td>
+          <td>${custo}</td>
+          <td>${dataEntrega}</td>
+          <td>
+            <button class="btn outline" onclick="editarProjeto(${proj.id})">Editar</button>
+            <button class="btn outline" onclick="deletarProjeto(${proj.id})">Excluir</button>
+            <button class="btn primary" onclick="gerarPDF(${proj.id})">PDF</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+    } catch (e) {
+      console.error("Erro ao carregar projetos:", e);
+      document.querySelector("#tabelaProjetos tbody").innerHTML =
+        "<tr><td colspan='6'>Erro ao carregar projetos</td></tr>";
+    }
+  }
+
+  function editarProjeto(id) {
+    localStorage.setItem("projetoEditId", id);
+    window.location.href = `projeto-form.html?id=${id}`;
+  }
+
+  async function deletarProjeto(id) {
+    if (!confirm("Tem certeza que deseja excluir este projeto?")) return;
+
+    const resp = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
+    if (resp.ok) {
+      alert("Projeto excluído com sucesso!");
+      carregarProjetos();
+    } else {
+      alert("Erro ao excluir projeto.");
+    }
+  }
+
+  async function gerarPDF(projetoId) {
+    try {
+      const btnPDF = event.target;
+      const textoOriginal = btnPDF.innerText;
+      btnPDF.innerText = "Gerando...";
+      btnPDF.disabled = true;
+
+      const resp = await fetch(`${API_RELATORIOS}/projeto/${projetoId}`);
+
+      if (!resp.ok) {
+        throw new Error(`Erro ao gerar PDF: ${resp.status}`);
+      }
+
+      const blob = await resp.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Projeto_${projetoId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      btnPDF.innerText = textoOriginal;
+      btnPDF.disabled = false;
+
+      alert("PDF gerado e baixado com sucesso!");
+
+    } catch (err) {
+      console.error("Erro ao gerar PDF:", err);
+      alert("Erro ao gerar PDF. Verifique o console.");
+
+      event.target.innerText = "PDF";
+      event.target.disabled = false;
+    }
+  }
+
+  const search = document.getElementById('search');
+  const tbody = document.querySelector('#tabelaProjetos tbody');
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase();
+    Array.from(tbody.rows).forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none');
+  });
+</script>
+</body>
+</html>

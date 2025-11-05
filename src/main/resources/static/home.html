@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SightCut - Login</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (sessionUserId) {
+      console.warn("Sessão ativa detectada. Redirecionando para home...");
+      window.location.replace("index.html");
+    }
+  </script>
+</head>
+<body>
+<main class="hero container" style="flex-direction:column;align-items:center;justify-content:center;">
+  <h1>Bem-vindo ao SightCut</h1>
+  <p>Entre em sua conta ou cadastre-se para começar.</p>
+
+  <div style="display:flex;gap:20px;margin-top:30px;">
+    <form id="login-form" class="panel form-panel" style="width:320px;">
+      <h3>Login</h3>
+      <input type="email" id="login-email" placeholder="E-mail" required />
+      <input type="password" id="login-senha" placeholder="Senha" required />
+      <button class="btn primary" type="submit">Entrar</button>
+    </form>
+
+    <form id="register-form" class="panel form-panel" style="width:320px;">
+      <h3>Cadastrar-se</h3>
+      <input type="text" id="reg-nome" placeholder="Nome completo" required />
+      <input type="email" id="reg-email" placeholder="E-mail" required />
+      <input type="password" id="reg-senha" placeholder="Senha" required />
+      <button class="btn outline" type="submit">Cadastrar</button>
+    </form>
+  </div>
+</main>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/usuarios";
+
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("login-email").value.trim();
+    const senha = document.getElementById("login-senha").value.trim();
+
+    const body = { email: email, senhaHash: senha };
+
+    try {
+      const response = await fetch(`${API_BASE}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) throw new Error("Falha no login");
+
+      const user = await response.json();
+      if (user && user.id) {
+        localStorage.setItem("sessionUserId", user.id);
+        console.log("Login bem-sucedido! ID:", user.id);
+        window.location.replace("index.html");
+      } else {
+        alert("Credenciais inválidas!");
+      }
+    } catch (err) {
+      console.error("Erro no login:", err);
+      alert("Erro ao tentar logar.");
+    }
+  });
+
+  document.getElementById("register-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = document.getElementById("reg-nome").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
+    const senha = document.getElementById("reg-senha").value.trim();
+
+    const body = { nome: nome, email: email, senhaHash: senha };
+
+    try {
+      const response = await fetch(`${API_BASE}/registrar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) throw new Error("Erro ao registrar");
+
+      const newUser = await response.json();
+      console.log("Usuário criado com sucesso:", newUser);
+      alert("Usuário registrado! Agora você pode entrar.");
+    } catch (err) {
+      console.error("Erro no registro:", err);
+      alert("Erro ao registrar usuário.");
+    }
+  });
+</script>
+</body>
+</html>

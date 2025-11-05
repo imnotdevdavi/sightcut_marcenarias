@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SightCut - Dashboard</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (!sessionUserId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.replace("home.html");
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div class="brand">
+      <a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a>
+    </div>
+    <nav class="mainnav">
+      <a href="clientes.html">Gerenciar Clientes</a>
+      <a href="materiais.html">Gerenciar Materiais</a>
+      <a href="projetos.html">Projetos</a>
+    </nav>
+    <div class="user">
+      <span id="user-greeting" style="margin-right:12px;font-weight:500;color:#0f6b4a;">Carregando...</span>
+      <a href="perfil.html" style="text-decoration:none;">
+        <img id="user-avatar" src="" alt="Perfil" style="width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;display:none;">
+        <svg id="user-avatar-default" class="avatar-btn" aria-label="perfil" xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="#0f6b4a" class="bi bi-person-circle" viewBox="0 0 16 16" style="cursor:pointer;">
+          <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+          <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
+        </svg>
+      </a>
+      <button id="logout-btn" class="btn outline" style="margin-left:12px;">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main class="hero container">
+  <div class="hero-left">
+    <span class="badge">Apenas um app, tudo em um só lugar.</span>
+    <h1>Veja o Lucro<br>antes do Primeiro Corte.</h1>
+    <p class="lead">Sua versão simplificada de CRM. Centralize projetos, gerencie clientes e tenha, em tempo real, o custo e a margem de lucro de cada peça.</p>
+    <div class="cta-group">
+      <a class="btn primary" href="projetos.html">Crie seu Projeto +</a>
+      <a class="btn ghost" href="#recursos">Saiba Mais ▾</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="card-features">
+      <article>
+        <img src="img/praticidade_gestao.png" alt="Grupo de profissionais em interação.">
+        <h3>Praticidade de Gestão</h3>
+        <p>Centralize todos os clientes e projetos em um painel que você realmente entende.</p>
+      </article>
+      <article>
+        <img src="img/previsao_custos.png" alt="Papéis demonstrando gráficos de custos.">
+        <h3>Previsão de Custos</h3>
+        <p>Calcule automaticamente todos os custos (material, mão de obra e margem) com precisão.</p>
+      </article>
+      <article>
+        <img src="img/solucao_pro.png" alt="Aperto de mãos entre profissionais.">
+        <h3>Solução Profissional</h3>
+        <p>Profissionalize seu atendimento e sua administração sem complicação.</p>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">SightCut © <span id="ano"></span></div>
+</footer>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/usuarios";
+  const userId = localStorage.getItem("sessionUserId");
+  console.log("Usuário logado, ID:", userId);
+
+  // Carregar dados do usuário
+  async function carregarUsuario() {
+    try {
+      const response = await fetch(`${API_BASE}/${userId}`);
+      if (!response.ok) throw new Error("Erro ao carregar usuário");
+
+      const user = await response.json();
+      document.getElementById("user-greeting").textContent = `Olá, ${user.nome.split(' ')[0]}!`;
+
+      // Verificar se tem foto de perfil
+      if (user.fotoPerfil) {
+        document.getElementById("user-avatar").src = user.fotoPerfil;
+        document.getElementById("user-avatar").style.display = "block";
+        document.getElementById("user-avatar-default").style.display = "none";
+      }
+    } catch (err) {
+      console.error("Erro ao carregar usuário:", err);
+      document.getElementById("user-greeting").textContent = "Olá!";
+    }
+  }
+
+  carregarUsuario();
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("sessionUserId");
+    console.log("Sessão encerrada.");
+    window.location.replace("home.html");
+  });
+
+  document.getElementById('ano').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>

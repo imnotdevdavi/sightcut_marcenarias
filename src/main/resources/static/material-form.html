@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Registrar Material - SightCut</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script>
+        const sessionUserId = localStorage.getItem("sessionUserId");
+        if (!sessionUserId) {
+          alert("É necessário efetuar o login antes de acessar o programa.");
+          window.location.replace("home.html");
+        }
+    </script>
+</head>
+<body>
+<header class="topbar">
+    <div class="container">
+        <div class="brand"><a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a></div>
+        <nav class="mainnav">
+            <a href="clientes.html">Gerenciar Clientes</a>
+            <a href="materiais.html" class="active">Gerenciar Materiais</a>
+            <a href="projetos.html">Projetos</a>
+        </nav>
+        <div class="user">
+        </div>
+    </div>
+</header>
+
+<div class="container page">
+    <aside class="sidebar">
+        <h2>Materiais <span class="icon">📦</span></h2>
+        <a class="btn white active" href="material-form.html">Registrar Material ⊕</a>
+    </aside>
+
+    <section class="content">
+        <div class="panel form-panel">
+            <h1>Novo Material</h1>
+            <form id="material-form">
+                <input type="text" id="nome" placeholder="Digite o Nome do Material" required>
+                <input type="number" id="espessura" placeholder="Espessura (mm)" step="0.01">
+                <input type="text" id="tipo" placeholder="Digite o Tipo do Material">
+                <input type="text" id="cor" placeholder="Digite a Cor do Material">
+                <input type="number" id="precoUnitario" placeholder="Preço Unitário (R$)" step="0.01">
+                <input type="text" id="unidade" placeholder="Unidade (ex: m², kg)">
+
+                <div class="form-actions">
+                    <button class="btn primary" type="submit" id="salvar-btn">REGISTRAR +</button>
+                    <button class="btn outline" type="button" id="voltar-btn">VOLTAR</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+<script>
+    const API_BASE = "http://localhost:8080/api/materiais";
+    const userId = Number(localStorage.getItem("sessionUserId"));
+    const editId = localStorage.getItem("materialEditId");
+
+    const nomeInput = document.getElementById("nome");
+    const espessuraInput = document.getElementById("espessura");
+    const tipoInput = document.getElementById("tipo");
+    const corInput = document.getElementById("cor");
+    const precoInput = document.getElementById("precoUnitario");
+    const unidadeInput = document.getElementById("unidade");
+
+    document.getElementById("voltar-btn").addEventListener("click", () => {
+      localStorage.removeItem("materialEditId");
+      window.location.href = "materiais.html";
+    });
+
+    async function carregarMaterial() {
+      if (!editId) return;
+
+      try {
+        const resp = await fetch(`${API_BASE}/${userId}`);
+        const materiais = await resp.json();
+        const mat = materiais.find(m => m.id == editId);
+
+        if (mat) {
+          nomeInput.value = mat.nome ?? "";
+          espessuraInput.value = mat.espessura ?? "";
+          tipoInput.value = mat.tipo ?? "";
+          corInput.value = mat.cor ?? "";
+          precoInput.value = mat.precoUnitario ?? "";
+          unidadeInput.value = mat.unidade ?? "";
+          document.querySelector("h1").innerText = "Editar Material";
+          document.getElementById("salvar-btn").innerText = "ATUALIZAR";
+        }
+      } catch (err) {
+        console.error("Erro ao carregar material:", err);
+      }
+    }
+
+    document.getElementById("material-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const material = {
+        id: editId ? Number(editId) : undefined,
+        usuario: { id: userId },
+        nome: nomeInput.value,
+        espessura: parseFloat(espessuraInput.value) || 0,
+        tipo: tipoInput.value,
+        cor: corInput.value,
+        precoUnitario: parseFloat(precoInput.value) || 0,
+        unidade: unidadeInput.value
+      };
+
+      try {
+        const resp = await fetch(API_BASE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(material)
+        });
+
+        if (resp.ok) {
+          alert(editId ? "Material atualizado com sucesso!" : "Material cadastrado!");
+          localStorage.removeItem("materialEditId");
+          window.location.href = "materiais.html";
+        } else {
+          alert("Erro ao salvar material.");
+        }
+      } catch (err) {
+        console.error("Erro ao salvar material:", err);
+        alert("Erro ao salvar material (ver console).");
+      }
+    });
+
+    carregarMaterial();
+</script>
+</body>
+</html>

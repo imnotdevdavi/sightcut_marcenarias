@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SightCut - Meu Perfil</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (!sessionUserId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.replace("home.html");
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div class="brand">
+      <a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a>
+    </div>
+    <nav class="mainnav">
+      <a href="index.html">Dashboard</a>
+      <a href="clientes.html">Gerenciar Clientes</a>
+      <a href="materiais.html">Gerenciar Materiais</a>
+      <a href="projetos.html">Projetos</a>
+    </nav>
+    <div class="user">
+      <button id="logout-btn" class="btn outline">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main class="profile-container">
+  <div class="profile-header">
+    <h1>Meu Perfil</h1>
+    <p>Gerencie suas informações pessoais e foto de perfil</p>
+  </div>
+
+  <div class="avatar-section">
+    <img id="avatar-preview" class="avatar-preview" style="display:none;" alt="Foto de perfil">
+    <div id="avatar-default" class="avatar-default">
+      <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="#0f6b4a" viewBox="0 0 16 16">
+        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
+      </svg>
+    </div>
+    <div class="avatar-buttons">
+      <input type="file" id="file-input" accept="image/*">
+      <button class="btn outline" onclick="document.getElementById('file-input').click()">Alterar Foto</button>
+      <button class="btn ghost" id="remove-photo-btn">Remover Foto</button>
+    </div>
+  </div>
+
+  <form id="profile-form" class="form-panel">
+    <div class="form-group">
+      <label for="nome">Nome Completo</label>
+      <input type="text" id="nome" required>
+    </div>
+
+    <div class="form-group">
+      <label for="email">E-mail</label>
+      <input type="email" id="email" required>
+    </div>
+
+    <div class="form-group">
+      <label for="cpf">CPF (opcional)</label>
+      <input type="text" id="cpf" placeholder="000.000.000-00">
+    </div>
+
+    <div class="form-group">
+      <label for="senha">Nova Senha (deixe em branco para não alterar)</label>
+      <input type="password" id="senha" placeholder="Digite uma nova senha">
+    </div>
+
+    <div class="form-actions">
+      <a href="index.html" class="btn ghost">Cancelar</a>
+      <button type="submit" class="btn primary">Salvar Alterações</button>
+    </div>
+  </form>
+</main>
+
+<footer class="site-footer">
+  <div class="container">SightCut © <span id="ano"></span></div>
+</footer>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/usuarios";
+  const userId = localStorage.getItem("sessionUserId");
+  let currentUser = null;
+  let currentPhoto = null;
+
+  // Carregar dados do usuário
+  async function carregarPerfil() {
+    try {
+      const response = await fetch(`${API_BASE}/${userId}`);
+      if (!response.ok) throw new Error("Erro ao carregar perfil");
+
+      currentUser = await response.json();
+
+      document.getElementById("nome").value = currentUser.nome || "";
+      document.getElementById("email").value = currentUser.email || "";
+      document.getElementById("cpf").value = currentUser.cpf || "";
+
+      // Carregar foto se existir
+      if (currentUser.fotoPerfil) {
+        currentPhoto = currentUser.fotoPerfil;
+        document.getElementById("avatar-preview").src = currentPhoto;
+        document.getElementById("avatar-preview").style.display = "block";
+        document.getElementById("avatar-default").style.display = "none";
+      }
+    } catch (err) {
+      console.error("Erro ao carregar perfil:", err);
+      alert("Erro ao carregar dados do perfil.");
+    }
+  }
+
+  carregarPerfil();
+
+  // Upload de foto
+  document.getElementById("file-input").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar tamanho (máx 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("A imagem deve ter no máximo 2MB.");
+      return;
+    }
+
+    // Validar tipo
+    if (!file.type.startsWith("image/")) {
+      alert("Por favor, selecione uma imagem válida.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      currentPhoto = event.target.result;
+      document.getElementById("avatar-preview").src = currentPhoto;
+      document.getElementById("avatar-preview").style.display = "block";
+      document.getElementById("avatar-default").style.display = "none";
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Remover foto
+  document.getElementById("remove-photo-btn").addEventListener("click", () => {
+    currentPhoto = null;
+    document.getElementById("avatar-preview").style.display = "none";
+    document.getElementById("avatar-default").style.display = "flex";
+    document.getElementById("file-input").value = "";
+  });
+
+  // Salvar alterações
+  document.getElementById("profile-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const nome = document.getElementById("nome").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const cpf = document.getElementById("cpf").value.trim();
+    const senha = document.getElementById("senha").value.trim();
+
+    const body = {
+      nome: nome,
+      email: email,
+      cpf: cpf || currentUser.cpf,
+      senhaHash: senha || currentUser.senhaHash,
+      fotoPerfil: currentPhoto,
+      role: currentUser.role,
+      ativo: currentUser.ativo
+    };
+
+    try {
+      const response = await fetch(`${API_BASE}/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) throw new Error("Erro ao atualizar perfil");
+
+      alert("Perfil atualizado com sucesso!");
+      window.location.href = "index.html";
+    } catch (err) {
+      console.error("Erro ao atualizar perfil:", err);
+      alert("Erro ao salvar alterações.");
+    }
+  });
+
+  // Logout
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("sessionUserId");
+    window.location.replace("home.html");
+  });
+
+  document.getElementById('ano').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>

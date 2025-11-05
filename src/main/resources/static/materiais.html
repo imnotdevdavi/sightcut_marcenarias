@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Materiais - SightCut</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (!sessionUserId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.replace("home.html");
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div class="brand"><a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a></div>
+    <nav class="mainnav">
+      <a href="clientes.html">Gerenciar Clientes</a>
+      <a href="materiais.html" class="active">Gerenciar Materiais</a>
+      <a href="projetos.html">Projetos</a>
+    </nav>
+    <div class="user">
+      <button id="logout-btn" class="btn outline" style="margin-left:12px;">Sair</button>
+    </div>
+  </div>
+</header>
+
+<div class="container page">
+  <aside class="sidebar">
+    <h2>Materiais <span class="icon">📦</span></h2>
+    <a class="btn white" href="material-form.html">Registrar Material</a>
+  </aside>
+
+  <section class="content">
+    <div class="panel">
+      <div class="table-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#0f6b4a" class="bi bi-search" viewBox="0 0 16 16">
+          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
+        </svg>
+        <input id="search" type="search" placeholder="Pesquisar material por tipo, cor ou nome">
+      </div>
+      <table class="table" id="materiais-table">
+        <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Espessura</th>
+          <th>Tipo</th>
+          <th>Cor</th>
+          <th>Preço Unitário</th>
+          <th>Unidade</th>
+          <th>Ações</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/materiais";
+  const userId = Number(localStorage.getItem("sessionUserId"));
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("sessionUserId");
+    console.log("Sessão encerrada.");
+    window.location.replace("home.html");
+  });
+
+  function extractUsuarioId(obj) {
+    if (!obj) return null;
+    if (obj.usuario) {
+      if (typeof obj.usuario === "object" && obj.usuario.id) return Number(obj.usuario.id);
+      if (!isNaN(Number(obj.usuario))) return Number(obj.usuario);
+    }
+    if (obj.usuarioId) return Number(obj.usuarioId);
+    if (obj.usuario_id) return Number(obj.usuario_id);
+    return null;
+  }
+
+  async function carregarMateriais() {
+    try {
+      const resp = await fetch(`${API_BASE}/${userId}`);
+      const text = await resp.text();
+      let dados;
+      try { dados = JSON.parse(text); } catch { dados = text; }
+
+      console.log("Resposta bruta GET /api/materiais:", resp.status, dados);
+
+      if (!resp.ok) {
+        console.error("Falha ao buscar materiais:", resp.status, dados);
+        document.querySelector("#materiais-table tbody").innerHTML = "<tr><td colspan='8'>Erro ao buscar materiais (ver console)</td></tr>";
+        return;
+      }
+
+      let lista = Array.isArray(dados) ? dados :
+                  Array.isArray(dados.content) ? dados.content :
+                  Array.isArray(dados.materiais) ? dados.materiais : [];
+
+      const meus = lista.filter(mat => extractUsuarioId(mat) === userId);
+
+      const tbody = document.querySelector("#materiais-table tbody");
+      tbody.innerHTML = "";
+
+      if (meus.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='8'>Nenhum material cadastrado</td></tr>";
+        return;
+      }
+
+      meus.forEach(mat => {
+        const id = mat.id ?? "-";
+        const nome = mat.nome ?? "-";
+        const espessura = mat.espessura ?? "-";
+        const tipo = mat.tipo ?? "-";
+        const cor = mat.cor ?? "-";
+        const preco = mat.precoUnitario ?? "-";
+        const unidade = mat.unidade ?? "-";
+
+        const row = `
+          <tr>
+            <td>${id}</td>
+            <td>${nome}</td>
+            <td>${espessura}</td>
+            <td>${tipo}</td>
+            <td>${cor}</td>
+            <td>${preco}</td>
+            <td>${unidade}</td>
+            <td>
+              <button class="btn outline" onclick="editarMaterial(${id})">Editar</button>
+              <button class="btn outline" onclick="deletarMaterial(${id})">Excluir</button>
+            </td>
+          </tr>
+        `;
+        tbody.insertAdjacentHTML("beforeend", row);
+      });
+
+    } catch (err) {
+      console.error("Erro ao carregar materiais:", err);
+      document.querySelector("#materiais-table tbody").innerHTML = "<tr><td colspan='8'>Erro ao carregar materiais</td></tr>";
+    }
+  }
+
+  function editarMaterial(id) {
+    localStorage.setItem("materialEditId", id);
+    window.location.href = "material-form.html";
+  }
+
+  async function deletarMaterial(id) {
+    if (!confirm("Tem certeza que deseja excluir este material?")) return;
+    try {
+      const resp = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
+      if (resp.ok) {
+        alert("Material excluído com sucesso!");
+        carregarMateriais();
+      } else {
+        alert("Erro ao excluir material.");
+      }
+    } catch (err) {
+      console.error("Erro ao excluir material:", err);
+      alert("Erro de conexão ao excluir material.");
+    }
+  }
+
+  const search = document.getElementById('search');
+  const tbody = document.querySelector('#materiais-table tbody');
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase();
+    Array.from(tbody.rows).forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none');
+  });
+
+  carregarMateriais();
+</script>
+</body>
+</html>

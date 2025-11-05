@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clientes - SightCut</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (!sessionUserId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.replace("home.html");
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div class="brand">
+      <a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a>
+    </div>
+    <nav class="mainnav">
+      <a href="clientes.html" class="active">Gerenciar Clientes</a>
+      <a href="materiais.html">Gerenciar Materiais</a>
+      <a href="projetos.html">Projetos</a>
+    </nav>
+    <div class="user">
+      <button id="logout-btn" class="btn outline" style="margin-left:12px;">Sair</button>
+    </div>
+  </div>
+</header>
+
+<div class="container page">
+  <aside class="sidebar">
+    <h2>Clientes <span class="icon">👤</span></h2>
+    <a class="btn white" href="cliente-form.html">Registrar Cliente</a>
+  </aside>
+
+  <section class="content">
+    <div class="panel">
+      <div class="table-header">
+        <div class="search-wrapper">
+          <input id="search" type="search" placeholder="Pesquisar cliente por nome, e-mail ou CPF">
+        </div>
+      </div>
+
+      <table class="table" id="clientes-table">
+        <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>E-mail</th>
+          <th>Telefone</th>
+          <th>CPF</th>
+          <th>CEP</th>
+          <th>Endereço</th>
+          <th>Ações</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/clientes";
+  const userId = Number(localStorage.getItem("sessionUserId"));
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("sessionUserId");
+    console.log("Sessão encerrada.");
+    window.location.replace("home.html");
+  });
+
+  function extractUsuarioId(cli) {
+    if (!cli) return null;
+    if (cli.usuario) {
+      if (typeof cli.usuario === "object" && cli.usuario !== null && ("id" in cli.usuario)) {
+        return Number(cli.usuario.id);
+      }
+      if (typeof cli.usuario === "number") return Number(cli.usuario);
+      if (typeof cli.usuario === "string" && !isNaN(Number(cli.usuario))) return Number(cli.usuario);
+    }
+    if ("usuario_id" in cli && cli.usuario_id != null) return Number(cli.usuario_id);
+    if ("usuarioId" in cli && cli.usuarioId != null) return Number(cli.usuarioId);
+    if ("usuarioID" in cli && cli.usuarioID != null) return Number(cli.usuarioID);
+    if ("usuario" in cli && (typeof cli.usuario === "number" || (!isNaN(Number(cli.usuario))))) {
+      return Number(cli.usuario);
+    }
+    return null;
+  }
+
+  async function carregarClientes() {
+    try {
+      const resp = await fetch(`${API_BASE}/${userId}`);
+      const text = await resp.text();
+
+      let dados;
+      try { dados = JSON.parse(text); } catch (e) { dados = text; }
+
+      console.log("Resposta bruta GET /api/clientes:", resp.status, dados);
+
+      if (!resp.ok) {
+        console.error("Falha ao buscar clientes:", resp.status, dados);
+        document.querySelector("#clientes-table tbody").innerHTML = "<tr><td colspan='8'>Erro ao buscar clientes (ver console)</td></tr>";
+        return;
+      }
+
+      let lista = [];
+      if (Array.isArray(dados)) lista = dados;
+      else if (dados && Array.isArray(dados.content)) lista = dados.content;
+      else if (dados && Array.isArray(dados.clientes)) lista = dados.clientes;
+      else if (dados && typeof dados === "object") lista = [dados];
+      else lista = [];
+
+      const meus = lista.filter(cli => {
+        const ownerId = extractUsuarioId(cli);
+        return ownerId !== null && ownerId === userId;
+      });
+
+      console.log("Lista completa (server):", lista);
+      console.log("Clientes do usuário (filtrados):", meus);
+
+      const tbody = document.querySelector("#clientes-table tbody");
+      tbody.innerHTML = "";
+
+      if (meus.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='8'>Nenhum cliente cadastrado para este usuário</td></tr>";
+        return;
+      }
+
+      meus.forEach(cli => {
+        const id = cli.id ?? cli._id ?? "-";
+        const nome = cli.nome ?? cli.name ?? "-";
+        const email = cli.email ?? "-";
+        const telefone = cli.telefone ?? "-";
+        const cpf = cli.cpf ?? "-";
+        const cep = cli.cep ?? "-";
+        const endereco = cli.endereco ?? "-";
+
+        const row = `
+          <tr>
+            <td>${id}</td>
+            <td>${nome}</td>
+            <td>${email}</td>
+            <td>${telefone}</td>
+            <td>${cpf}</td>
+            <td>${cep}</td>
+            <td>${endereco}</td>
+            <td>
+              <button class="btn outline" onclick="editarCliente(${id})">Editar</button>
+              <button class="btn outline" onclick="deletarCliente(${id})">Excluir</button>
+            </td>
+          </tr>
+        `;
+        tbody.insertAdjacentHTML("beforeend", row);
+      });
+
+    } catch (err) {
+      console.error("Erro ao carregar clientes:", err);
+      document.querySelector("#clientes-table tbody").innerHTML = "<tr><td colspan='8'>Erro ao carregar clientes (ver console)</td></tr>";
+    }
+  }
+
+  function editarCliente(id) {
+    localStorage.setItem("clienteEditId", id);
+    window.location.href = "cliente-form.html";
+  }
+
+  async function deletarCliente(id) {
+    if (!confirm("Tem certeza que deseja excluir este cliente?")) return;
+    try {
+      const resp = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
+      if (!resp.ok) throw new Error(`Erro ${resp.status}`);
+      alert("Cliente excluído com sucesso!");
+      carregarClientes();
+    } catch (err) {
+      console.error("Erro ao excluir cliente:", err);
+      alert("Erro ao excluir cliente (ver console)");
+    }
+  }
+
+  const search = document.getElementById('search');
+  const tbody = document.querySelector('#clientes-table tbody');
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase().trim();
+    Array.from(tbody.rows).forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(q) ? '' : 'none';
+    });
+  });
+
+  carregarClientes();
+</script>
+</body>
+</html>

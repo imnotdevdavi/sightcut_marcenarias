@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registrar Cliente - SightCut</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script>
+    const sessionUserId = localStorage.getItem("sessionUserId");
+    if (!sessionUserId) {
+      alert("É necessário efetuar o login antes de acessar o programa.");
+      window.location.replace("home.html");
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <div class="brand">
+      <a href="index.html"><img src="/img/Prancheta 3.png" alt="SightCut" class="logo"></a>
+    </div>
+    <nav class="mainnav">
+      <a href="clientes.html">Gerenciar Clientes</a>
+      <a href="materiais.html">Gerenciar Materiais</a>
+      <a href="projetos.html">Projetos</a>
+    </nav>
+    <div class="user">
+    </div>
+  </div>
+</header>
+
+<div class="container page">
+  <aside class="sidebar">
+    <h2>Clientes <span class="icon">👤</span></h2>
+    <a class="btn white active" href="cliente-form.html">Registrar Cliente ⊕</a>
+  </aside>
+
+  <section class="content">
+    <div class="panel form-panel">
+      <h1 id="form-title">Novo Cliente</h1>
+      <form id="cliente-form">
+        <div class="input-row">
+          <input type="text" id="nome" placeholder="Digite o Nome do Cliente" required />
+        </div>
+        <div class="input-row">
+          <input type="email" id="email" placeholder="Digite o E-mail do Cliente" />
+        </div>
+        <div class="input-row">
+          <input type="text" id="telefone" placeholder="Digite o Telefone do Cliente" />
+        </div>
+        <div class="input-row">
+          <input type="text" id="cpf" placeholder="Digite o CPF do Cliente" />
+        </div>
+        <div class="input-row">
+          <input type="text" id="cep" placeholder="Digite o CEP do Cliente" />
+        </div>
+        <div class="input-row">
+          <textarea id="endereco" placeholder="Digite o Endereço do Cliente"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn primary" type="submit" id="save-btn">REGISTRAR +</button>
+          <button class="btn outline" type="button" id="back-btn">VOLTAR</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8080/api/clientes";
+  const userId = Number(localStorage.getItem("sessionUserId"));
+  const clienteEditId = localStorage.getItem("clienteEditId");
+
+  const inputNome = document.getElementById("nome");
+  const inputEmail = document.getElementById("email");
+  const inputTelefone = document.getElementById("telefone");
+  const inputCpf = document.getElementById("cpf");
+  const inputCep = document.getElementById("cep");
+  const inputEndereco = document.getElementById("endereco");
+  const formTitle = document.getElementById("form-title");
+  const saveBtn = document.getElementById("save-btn");
+
+  document.getElementById("back-btn").addEventListener("click", () => {
+    localStorage.removeItem("clienteEditId");
+    window.location.href = "clientes.html";
+  });
+
+  async function carregarParaEdicao(id) {
+    try {
+      console.log("Carregando lista de clientes do usuário para encontrar o id:", id);
+      const resp = await fetch(`${API_BASE}/${userId}`);
+      if (!resp.ok) {
+        console.error("Falha ao buscar clientes para edição:", resp.status);
+        return;
+      }
+      const lista = await resp.json();
+
+      const cliente = Array.isArray(lista) ? lista.find(c => (c.id ?? c._id) == id) : null;
+      if (!cliente) {
+        console.warn("Cliente não encontrado na lista do usuário. id=", id);
+        return;
+      }
+
+      inputNome.value = cliente.nome ?? cliente.name ?? "";
+      inputEmail.value = cliente.email ?? "";
+      inputTelefone.value = cliente.telefone ?? "";
+      inputCpf.value = cliente.cpf ?? "";
+      inputCep.value = cliente.cep ?? "";
+      inputEndereco.value = cliente.endereco ?? "";
+
+      formTitle.innerText = "Editar Cliente";
+      saveBtn.innerText = "ATUALIZAR";
+
+      const newUrl = `${location.pathname}?id=${encodeURIComponent(id)}`;
+      window.history.replaceState({}, "", newUrl);
+
+      console.log("Form preenchido para edição:", cliente);
+    } catch (err) {
+      console.error("Erro ao carregar cliente para edição:", err);
+    }
+  }
+
+  if (clienteEditId) {
+    carregarParaEdicao(clienteEditId);
+  }
+
+  document.getElementById("cliente-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const clientePayload = {
+      nome: inputNome.value.trim(),
+      email: inputEmail.value.trim() || null,
+      telefone: inputTelefone.value.trim() || null,
+      cpf: inputCpf.value.trim() || null,
+      cep: inputCep.value.trim() || null,
+      endereco: inputEndereco.value.trim() || null,
+      usuario: { id: userId }
+    };
+
+    if (clienteEditId) {
+      clientePayload.id = Number(clienteEditId);
+    }
+
+    console.log("Payload enviado para POST /api/clientes:", clientePayload);
+
+    try {
+      const resp = await fetch(API_BASE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(clientePayload)
+      });
+
+      const text = await resp.text();
+      let json;
+      try { json = JSON.parse(text); } catch (_) { json = text; }
+
+      console.log("Resposta do servidor (POST /api/clientes):", resp.status, json);
+
+      if (!resp.ok) {
+        alert("Erro ao salvar cliente. Verifique console para detalhes.");
+        return;
+      }
+
+      if (clienteEditId) {
+        localStorage.removeItem("clienteEditId");
+      }
+
+      alert(clienteEditId ? "Cliente atualizado com sucesso!" : "Cliente cadastrado com sucesso!");
+      window.location.href = "clientes.html";
+    } catch (err) {
+      console.error("Erro ao salvar cliente:", err);
+      alert("Erro ao salvar cliente (ver console).");
+    }
+  });
+</script>
+</body>
+</html>
