@@ -28,8 +28,8 @@ Sistema web para gerenciamento de projetos, clientes e cálculo automático de c
 
 ### 1. Clone o repositório
 ```bash
-git clone https://github.com/seu-usuario/sightcut.git
-cd sightcut
+git clone https://github.com/imnotdevdavi/sightcut-marcenarias.git
+cd sightcut-marcenarias
 ```
 
 ### 2. Configure o banco de dados
